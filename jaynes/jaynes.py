@@ -224,7 +224,12 @@ class Jaynes:
             else:
                 hydrated_runner_config[k] = v
         if 'work_dir' not in hydrated_runner_config:
-            hydrated_runner_config['work_dir'] = os.getcwd()
+            # For remote execution with mounts, use the first mount's host_path
+            # Otherwise use None to avoid using local machine's cwd
+            if cls.mounts and len(cls.mounts) > 0:
+                hydrated_runner_config['work_dir'] = cls.mounts[0].host_path
+            else:
+                hydrated_runner_config['work_dir'] = None
 
         return Runner, hydrated_runner_config
 

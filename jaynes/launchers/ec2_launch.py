@@ -53,8 +53,11 @@ def launch_ec2(launch_script, image_id, instance_type, key_name, security_group,
         print('Using the default AWS Profile')
 
     instance_config = dict(ImageId=image_id, KeyName=key_name, InstanceType=instance_type,
-                           SecurityGroups=(security_group,),
+                           SecurityGroupIds=[security_group] if security_group.startswith('sg-') else None,
+                           SecurityGroups=(security_group,) if not security_group.startswith('sg-') else None,
                            IamInstanceProfile={'Arn': iam_instance_profile_arn})
+    # Remove None values
+    instance_config = {k: v for k, v in instance_config.items() if v is not None}
     if availability_zone:
         instance_config['Placement'] = dict(AvailabilityZone=availability_zone)
 
