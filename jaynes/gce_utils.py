@@ -2,7 +2,7 @@ import os
 import time
 
 import googleapiclient.discovery
-from params_proto import ParamsProto, Proto
+import argparse
 from six.moves import input
 
 
@@ -107,7 +107,16 @@ def wait_for_operation(compute, project_id, zone, operation):
         time.sleep(1)
 
 
-def main(project_id, bucket_name, zone, machine_type, instance_name, wait=True):
+def main(project_id, bucket_name, machine_type, zone, instance_name, wait=True):
+    """Example of using the Compute Engine API to create and delete instances.
+
+    Creates a new compute engine instance and uses it to apply a caption to
+    an image.
+
+        https://cloud.google.com/compute/docs/tutorials/python-guide
+
+    For more information, see the README.md under /compute.
+    """
     compute = googleapiclient.discovery.build('compute', 'v1')
 
     print('Creating instance.')
@@ -138,21 +147,28 @@ Once the image is uploaded press enter to delete the instance.
 
 
 if __name__ == '__main__':
-    class CreateInstance(ParamsProto):
-        """Example of using the Compute Engine API to create and delete instances.
+    parser = argparse.ArgumentParser(
+        description='Example of using the Compute Engine API to create and delete instances.'
+    )
+    parser.add_argument('--project-id', dest='project_id',
+                        default=os.environ.get('JYNS_GCE_PROJECT'),
+                        help='Your Google Cloud project ID')
+    parser.add_argument('--bucket-name', dest='bucket_name',
+                        default=os.environ.get('USER_GS_BUCKET'),
+                        help='Your Google Cloud Storage bucket name')
+    parser.add_argument('--machine-type', dest='machine_type',
+                        default='n1-standard-1',
+                        help='Availability depends on region')
+    parser.add_argument('--zone', dest='zone',
+                        default='us-central1-f',
+                        help='Compute Engine zone to deploy to')
+    parser.add_argument('--instance-name', dest='instance_name',
+                        default='demo-instance',
+                        help='New instance name')
+    parser.add_argument('--no-wait', dest='wait',
+                        action='store_false',
+                        help='Do not wait for completion before deletion')
 
-        Creates a new compute engine instance and uses it to apply a caption to
-        an image.
-
-            https://cloud.google.com/compute/docs/tutorials/python-guide
-
-        For more information, see the README.md under /compute.
-        """
-        project_id = Proto(env="JYNS_GCE_PROJECT", help='Your Google Cloud project ID.')
-        bucket_name = Proto(env="USER_GS_BUCKET", help='Your Google Cloud Storage bucket name.')
-        machine_type = Proto("n1-standard-1", help="availability depends on region.")
-        zone = Proto('us-central1-f', help='Compute Engine zone to deploy to.')
-        instance_name = Proto('demo-instance', help='New instance name.')
-
-
-    main(**vars(CreateInstance))
+    args = parser.parse_args()
+    main(args.project_id, args.bucket_name, args.machine_type,
+         args.zone, args.instance_name, args.wait)

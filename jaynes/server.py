@@ -4,27 +4,33 @@ from aiofile import AIOFile, Reader, Writer
 from sanic import Sanic
 from sanic.response import json
 from sanic.response import json
-from params_proto import ParamsProto
-
-
-# todo use neo_proto to support better logic in
-#  init call
-class ServerConfig(ParamsProto, prefix=""):
-    server = None
-    protocol = "http"
-    host = "0.0.0.0"
-    port = 8092
-    token = None
-    file_root = os.getcwd()
-    envs = {
-        "JYNMNT": os.environ.get("JYNMNT", os.getcwd() + "/jaynes-mounts")
-    }
+class ServerConfig:
+    server: str = None  # Server URL (auto-computed)
+    protocol: str = "http"  # Protocol (http/https)
+    host: str = "0.0.0.0"  # Host address
+    port: int = 8092  # Port number
+    token: str = None  # Authentication token
+    file_root: str = os.getcwd()  # File root directory
+    envs: dict = None  # Environment variables
 
     @classmethod
-    def __init__(cls, deps=None, **kwargs):
-        cls.server = f"{cls.protocol}://{cls.host}:{cls.port}"
-        cls._update(deps, **kwargs)
+    def initialize(cls, **kwargs):
+        """Initialize server config with custom values."""
+        # Update config with provided kwargs
+        for key, value in kwargs.items():
+            if hasattr(cls, key) and value is not None:
+                setattr(cls, key, value)
 
+        # Set default envs if not provided
+        if cls.envs is None:
+            cls.envs = {
+                "JYNMNT": os.environ.get("JYNMNT", os.getcwd() + "/jaynes-mounts")
+            }
+
+        # Compute server URL
+        cls.server = f"{cls.protocol}://{cls.host}:{cls.port}"
+
+        # Update environment variables
         if cls.envs:
             os.environ.update(cls.envs)
 
@@ -142,5 +148,5 @@ if __name__ == "__main__":
                         help='port for the server')
 
     args = parser.parse_args()
-    ServerConfig(host=args.host, port=args.port)
+    ServerConfig.initialize(host=args.host, port=args.port)
     app.run(host=ServerConfig.host, port=ServerConfig.port)

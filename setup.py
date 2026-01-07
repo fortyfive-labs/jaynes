@@ -31,7 +31,6 @@ setup(
         "aiofile",
         "cloudpickle==3.1.1",
         "functional_notations",
-        "params-proto>=2.10.0",
         "pyyaml",
         "requests",
         "termcolor",
