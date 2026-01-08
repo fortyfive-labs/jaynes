@@ -126,11 +126,34 @@ JAYNES_LAUNCH_DIR={launch_dir}
     # NOTE: path.join is running on local computer, so it might not be quite right if remote is say windows.
     # NOTE: dedent is required by aws EC2.
     terminate_commands = ""
+    cleanup_trap = ""
     if terminate_after:
         if type == "ec2":
             terminate_commands = ec2_terminate(delay)
+            # Create a cleanup function that will be called on any exit
+            cleanup_trap = dedent(f"""
+# Define cleanup function for guaranteed termination
+cleanup() {{
+    EXIT_CODE=$?
+    echo "Cleanup triggered (exit code: $EXIT_CODE)"
+{ec2_terminate(delay).strip()}
+}}
+# Set trap to call cleanup on EXIT, ERR, INT, and TERM
+trap cleanup EXIT ERR INT TERM
+""").strip()
         elif type == "gce":
             terminate_commands = gce_terminate(delay)
+            # Create a cleanup function that will be called on any exit
+            cleanup_trap = dedent(f"""
+# Define cleanup function for guaranteed termination
+cleanup() {{
+    EXIT_CODE=$?
+    echo "Cleanup triggered (exit code: $EXIT_CODE)"
+{gce_terminate(delay).strip()}
+}}
+# Set trap to call cleanup on EXIT, ERR, INT, and TERM
+trap cleanup EXIT ERR INT TERM
+""").strip()
         else:
             raise NotImplementedError(f"terminate_after is not supported with {type}")
 
@@ -149,6 +172,7 @@ JAYNES_LAUNCH_DIR={launch_dir}
 set +o posix
 {root_config or ""}
 {log_setup or ""}
+{cleanup_trap}
 {{
 # launch.setup script
 {setup or ""}
@@ -162,6 +186,5 @@ set +o posix
 {run_scripts}
 # post script
 {post_scripts}
-{terminate_commands}
 }} {pipe_out or ""}
 """).strip()
