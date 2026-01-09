@@ -18,6 +18,7 @@ import boto3
 from datetime import datetime
 from typing import Literal, Optional
 from pathlib import Path
+from params_proto import proto
 
 
 def get_running_instances(region='us-east-1', project='jaynes-demo'):
@@ -130,60 +131,55 @@ def load_sweep_config(sweep_path: Path):
     return configs
 
 
-def main():
-    from params_proto import proto
+@proto.cli
+def launch_sweep(
+    mode: Literal["gpu", "gpu_large", "multi_gpu"] = "gpu",  # Execution mode
+    num_jobs: int = 10,  # Number of jobs to launch
+    max_concurrent: int = 10,  # Maximum concurrent instances
+    check_interval: int = 30,  # Seconds between instance checks
+    region: str = "us-east-1",  # AWS region
+    grid_search: bool = False,  # Run grid search over hyperparameters
+    sweep: Optional[Path] = None,  # Path to sweep configuration YAML file
+):
+    """Launch large-scale jaynes training jobs with concurrency control"""
 
-    @proto.cli
-    def launch_sweep(
-        mode: Literal["gpu", "gpu_large", "multi_gpu"] = "gpu",  # Execution mode
-        num_jobs: int = 10,  # Number of jobs to launch
-        max_concurrent: int = 10,  # Maximum concurrent instances
-        check_interval: int = 30,  # Seconds between instance checks
-        region: str = "us-east-1",  # AWS region
-        grid_search: bool = False,  # Run grid search over hyperparameters
-        sweep: Optional[Path] = None,  # Path to sweep configuration YAML file
-    ):
-        """Launch large-scale jaynes training jobs with concurrency control"""
-
-        # Generate job configurations based on mode
-        if sweep:
-            print(f"Loading sweep configuration from: {sweep}")
-            configs = load_sweep_config(sweep)
-            print(f"Loaded {len(configs)} configurations from sweep file")
-        elif grid_search:
-            print("Running grid search...")
-            param_grid = {
-                'lr': [0.01, 0.001, 0.0001],
-                'batch_size': [32, 64, 128],
-                'epochs': [5],
-                'use_wandb': [False]
+    # Generate job configurations based on mode
+    if sweep:
+        print(f"Loading sweep configuration from: {sweep}")
+        configs = load_sweep_config(sweep)
+        print(f"Loaded {len(configs)} configurations from sweep file")
+    elif grid_search:
+        print("Running grid search...")
+        param_grid = {
+            'lr': [0.01, 0.001, 0.0001],
+            'batch_size': [32, 64, 128],
+            'epochs': [5],
+            'use_wandb': [False]
+        }
+        configs = generate_grid_search_configs(param_grid)
+        print(f"Generated {len(configs)} configurations")
+    else:
+        # Generate simple numbered jobs
+        configs = [
+            {
+                'name': f'mnist-job-{i:03d}',
+                'lr': 0.001,
+                'batch_size': 64,
+                'epochs': 5,
+                'use_wandb': False
             }
-            configs = generate_grid_search_configs(param_grid)
-            print(f"Generated {len(configs)} configurations")
-        else:
-            # Generate simple numbered jobs
-            configs = [
-                {
-                    'name': f'mnist-job-{i:03d}',
-                    'lr': 0.001,
-                    'batch_size': 64,
-                    'epochs': 5,
-                    'use_wandb': False
-                }
-                for i in range(num_jobs)
-            ]
+            for i in range(num_jobs)
+        ]
 
-        # Launch with concurrency control
-        launch_batch_with_concurrency_limit(
-            configs,
-            mode=mode,
-            max_concurrent=max_concurrent,
-            check_interval=check_interval,
-            region=region
-        )
-
-    launch_sweep()
+    # Launch with concurrency control
+    launch_batch_with_concurrency_limit(
+        configs,
+        mode=mode,
+        max_concurrent=max_concurrent,
+        check_interval=check_interval,
+        region=region
+    )
 
 
 if __name__ == "__main__":
-    main()
+    launch_sweep()

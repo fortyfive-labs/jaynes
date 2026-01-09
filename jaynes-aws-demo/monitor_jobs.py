@@ -16,6 +16,7 @@ import boto3
 import time
 from datetime import datetime, timezone
 from collections import defaultdict
+from params_proto import proto
 
 
 # Pricing (approximate as of 2026, us-east-1)
@@ -200,36 +201,31 @@ def terminate_idle_instances(region='us-east-1', idle_threshold_minutes=10):
             print(f"Terminated {len(to_terminate)} instances")
 
 
-def main():
-    from params_proto import proto
-
-    @proto.cli
-    def monitor(
-        region: str = "us-east-1",  # AWS region
-        watch: bool = False,  # Watch mode with auto-refresh
-        interval: int = 30,  # Refresh interval in seconds (for watch mode)
-        cost: bool = False,  # Show cost estimates
-        terminate_idle: bool = False,  # Check and terminate idle instances
-        idle_threshold: int = 10,  # Idle threshold in minutes
-    ):
-        """Monitor jaynes training jobs on AWS EC2"""
-        if terminate_idle:
-            terminate_idle_instances(
-                region=region,
-                idle_threshold_minutes=idle_threshold
-            )
-        elif watch:
-            watch_instances(
-                region=region,
-                interval=interval,
-                show_cost=cost
-            )
-        else:
-            instances = get_instances(region=region)
-            display_instances(instances, show_cost=cost)
-
-    monitor()
+@proto.cli
+def monitor(
+    region: str = "us-east-1",  # AWS region
+    watch: bool = False,  # Watch mode with auto-refresh
+    interval: int = 30,  # Refresh interval in seconds (for watch mode)
+    cost: bool = False,  # Show cost estimates
+    terminate_idle: bool = False,  # Check and terminate idle instances
+    idle_threshold: int = 10,  # Idle threshold in minutes
+):
+    """Monitor jaynes training jobs on AWS EC2"""
+    if terminate_idle:
+        terminate_idle_instances(
+            region=region,
+            idle_threshold_minutes=idle_threshold
+        )
+    elif watch:
+        watch_instances(
+            region=region,
+            interval=interval,
+            show_cost=cost
+        )
+    else:
+        instances = get_instances(region=region)
+        display_instances(instances, show_cost=cost)
 
 
 if __name__ == "__main__":
-    main()
+    monitor()

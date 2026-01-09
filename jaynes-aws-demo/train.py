@@ -6,6 +6,7 @@ import os
 import json
 import time
 from datetime import datetime
+from params_proto import proto
 
 
 def train(
@@ -246,25 +247,23 @@ def train(
     return results
 
 
+@proto.cli
+def main(
+    experiment_name: str = "mnist-demo",  # Experiment name
+    lr: float = 0.001,  # Learning rate
+    batch_size: int = 64,  # Batch size
+    epochs: int = 5,  # Number of epochs
+    use_wandb: bool = False,  # Use Weights & Biases logging
+):
+    """Train MNIST model"""
+    train(
+        experiment_name=experiment_name,
+        lr=lr,
+        batch_size=batch_size,
+        epochs=epochs,
+        use_wandb=use_wandb
+    )
+
+
 if __name__ == "__main__":
-    # Simple command-line execution (without jaynes)
-    from params_proto import proto
-
-    @proto.cli
-    def main(
-        experiment_name: str = "mnist-demo",  # Experiment name
-        lr: float = 0.001,  # Learning rate
-        batch_size: int = 64,  # Batch size
-        epochs: int = 5,  # Number of epochs
-        use_wandb: bool = False,  # Use Weights & Biases logging
-    ):
-        """Train MNIST model"""
-        train(
-            experiment_name=experiment_name,
-            lr=lr,
-            batch_size=batch_size,
-            epochs=epochs,
-            use_wandb=use_wandb
-        )
-
     main()

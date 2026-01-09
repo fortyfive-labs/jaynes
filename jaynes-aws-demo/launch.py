@@ -16,6 +16,7 @@ Usage:
     python launch.py --mode gpu --sweep
 """
 import jaynes
+from params_proto import proto
 
 
 def single_run():
@@ -54,48 +55,43 @@ def hyperparameter_sweep():
     print("All runs launched!")
 
 
-def main():
-    from params_proto import proto
+@proto.cli
+def launch(
+    mode: str = "local",  # Execution mode: local, debug, gpu, gpu_large, multi_gpu
+    sweep: bool = False,  # Run hyperparameter sweep instead of single run
+    lr: float = 0.001,  # Learning rate (single run only)
+    batch_size: int = 64,  # Batch size (single run only)
+    epochs: int = 10,  # Number of epochs (single run only)
+):
+    """Launch MNIST training with jaynes"""
+    # Validate mode
+    valid_modes = ['local', 'debug', 'gpu', 'gpu_large', 'multi_gpu']
+    if mode not in valid_modes:
+        raise ValueError(f"mode must be one of {valid_modes}")
 
-    @proto.cli
-    def launch(
-        mode: str = "local",  # Execution mode: local, debug, gpu, gpu_large, multi_gpu
-        sweep: bool = False,  # Run hyperparameter sweep instead of single run
-        lr: float = 0.001,  # Learning rate (single run only)
-        batch_size: int = 64,  # Batch size (single run only)
-        epochs: int = 10,  # Number of epochs (single run only)
-    ):
-        """Launch MNIST training with jaynes"""
-        # Validate mode
-        valid_modes = ['local', 'debug', 'gpu', 'gpu_large', 'multi_gpu']
-        if mode not in valid_modes:
-            raise ValueError(f"mode must be one of {valid_modes}")
+    # Configure jaynes
+    print(f"Configuring jaynes with mode: {mode}")
+    jaynes.config(mode=mode)
 
-        # Configure jaynes
-        print(f"Configuring jaynes with mode: {mode}")
-        jaynes.config(mode=mode)
+    # Launch
+    if sweep:
+        print("Running hyperparameter sweep...")
+        hyperparameter_sweep()
+    else:
+        print("Running single training job...")
+        from train import train
+        jaynes.run(train,
+                   experiment_name=f"mnist-{mode}",
+                   lr=lr,
+                   batch_size=batch_size,
+                   epochs=epochs)
 
-        # Launch
-        if sweep:
-            print("Running hyperparameter sweep...")
-            hyperparameter_sweep()
-        else:
-            print("Running single training job...")
-            from train import train
-            jaynes.run(train,
-                       experiment_name=f"mnist-{mode}",
-                       lr=lr,
-                       batch_size=batch_size,
-                       epochs=epochs)
-
-        # For remote modes, keep the connection alive
-        if mode != 'local':
-            print("Job launched! Keeping connection alive...")
-            jaynes.listen()
-            print("Done!")
-
-    launch()
+    # For remote modes, keep the connection alive
+    if mode != 'local':
+        print("Job launched! Keeping connection alive...")
+        jaynes.listen()
+        print("Done!")
 
 
 if __name__ == "__main__":
-    main()
+    launch()
