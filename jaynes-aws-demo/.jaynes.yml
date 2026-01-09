@@ -152,8 +152,8 @@ modes:
     runner: *simple_gpu_runner
     launch:
       <<: *ec2_launch
-      instance_type: g5.xlarge  # 1x A10G GPU, ~$1.00/hr on-demand
-      spot_price: null  # Use on-demand instance for testing
+      instance_type: g5.xlarge  # 1x A10G GPU, ~$0.30/hr spot
+      spot_price: "1.50"  # max price per hour (spot)
       tags:
         Project: jaynes-demo
         InstanceType: gpu-large

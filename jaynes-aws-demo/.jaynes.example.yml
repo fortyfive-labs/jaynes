@@ -195,7 +195,7 @@ modes:
     launch:
       <<: *ec2_launch
       instance_type: g5.xlarge  # 1x A10G GPU, 4 vCPU, 16 GB RAM
-      spot_price: null  # Use on-demand for reliability (or set to "1.50" for spot)
+      spot_price: "1.50"  # max price per hour (spot)
       tags:
         Project: jaynes-demo
         InstanceType: gpu-large
