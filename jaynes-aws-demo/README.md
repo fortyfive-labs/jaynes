@@ -15,6 +15,10 @@ A complete example of using Jaynes to train PyTorch models on AWS EC2 with S3 co
 
 ### 1. Prerequisites
 
+**Python Version:**
+- **Python 3.10 or higher required** (params-proto uses modern type hint syntax)
+- If you have Python 3.9 or lower, use `python3.11` or `python3.12` explicitly
+
 **Local Setup:**
 ```bash
 # Install dependencies
@@ -25,6 +29,13 @@ aws configure
 # AWS Access Key ID: YOUR_KEY
 # AWS Secret Access Key: YOUR_SECRET
 # Default region: us-west-2
+```
+
+**Note:** If you get `AttributeError: module 'params_proto.proto' has no attribute 'cli'`, you're using Python 3.9 or lower. Use Python 3.10+:
+```bash
+# Use Python 3.11 or 3.12 explicitly
+python3.11 launch.py --mode local
+python3.12 launch_sweep.py --sweep sweep_simple.yaml
 ```
 
 **AWS Setup:**
