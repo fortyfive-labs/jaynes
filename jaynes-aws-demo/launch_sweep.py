@@ -16,8 +16,7 @@ import jaynes
 import time
 import boto3
 from datetime import datetime
-from typing import Literal, Optional
-from pathlib import Path
+from typing import Literal
 from params_proto import proto
 
 
@@ -113,9 +112,14 @@ def generate_grid_search_configs(param_grid):
     return configs
 
 
-def load_sweep_config(sweep_path: Path):
+def load_sweep_config(sweep_path):
     """Load sweep configuration from YAML file"""
     import yaml
+    from pathlib import Path
+
+    # Convert to Path if string
+    if isinstance(sweep_path, str):
+        sweep_path = Path(sweep_path)
 
     with open(sweep_path, 'r') as f:
         sweep_config = yaml.safe_load(f)
@@ -133,13 +137,13 @@ def load_sweep_config(sweep_path: Path):
 
 @proto.cli
 def launch_sweep(
-    mode: Literal["gpu", "gpu_large", "multi_gpu"] = "gpu",  # Execution mode
+    mode: Literal["debug", "gpu", "gpu_large", "multi_gpu"] = "gpu",  # Execution mode
     num_jobs: int = 10,  # Number of jobs to launch
     max_concurrent: int = 10,  # Maximum concurrent instances
     check_interval: int = 30,  # Seconds between instance checks
     region: str = "us-east-1",  # AWS region
     grid_search: bool = False,  # Run grid search over hyperparameters
-    sweep: Optional[Path] = None,  # Path to sweep configuration YAML file
+    sweep: str = None,  # Path to sweep configuration YAML file
 ):
     """Launch large-scale jaynes training jobs with concurrency control"""
 
