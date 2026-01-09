@@ -6,13 +6,18 @@ Usage:
     # Launch 50 jobs with cost limits
     python launch_sweep.py --num-jobs 50 --max-concurrent 10 --mode gpu
 
-    # Launch with specific configurations
-    python launch_sweep.py --config experiments.yaml --mode gpu_large
+    # Launch with grid search
+    python launch_sweep.py --grid-search --max-concurrent 5 --mode gpu
+
+    # Launch with custom sweep configuration
+    python launch_sweep.py --sweep configs/sweep.yaml --mode gpu
 """
 import jaynes
 import time
 import boto3
 from datetime import datetime
+from typing import Literal, Optional
+from pathlib import Path
 
 
 def get_running_instances(region='us-east-1', project='jaynes-demo'):
@@ -107,26 +112,45 @@ def generate_grid_search_configs(param_grid):
     return configs
 
 
+def load_sweep_config(sweep_path: Path):
+    """Load sweep configuration from YAML file"""
+    import yaml
+
+    with open(sweep_path, 'r') as f:
+        sweep_config = yaml.safe_load(f)
+
+    # Convert to configs format
+    configs = []
+    for i, params in enumerate(sweep_config.get('experiments', [])):
+        config = params.copy()
+        if 'name' not in config:
+            config['name'] = f"sweep-{i:03d}"
+        configs.append(config)
+
+    return configs
+
+
 def main():
     from params_proto import proto
 
     @proto.cli
     def launch_sweep(
-        mode: str = "gpu",  # Execution mode: gpu, gpu_large, multi_gpu
+        mode: Literal["gpu", "gpu_large", "multi_gpu"] = "gpu",  # Execution mode
         num_jobs: int = 10,  # Number of jobs to launch
         max_concurrent: int = 10,  # Maximum concurrent instances
         check_interval: int = 30,  # Seconds between instance checks
         region: str = "us-east-1",  # AWS region
         grid_search: bool = False,  # Run grid search over hyperparameters
+        sweep: Optional[Path] = None,  # Path to sweep configuration YAML file
     ):
-        """Launch large-scale jaynes training jobs"""
-        # Validate mode
-        valid_modes = ['gpu', 'gpu_large', 'multi_gpu']
-        if mode not in valid_modes:
-            raise ValueError(f"mode must be one of {valid_modes}")
+        """Launch large-scale jaynes training jobs with concurrency control"""
 
-        # Generate job configurations
-        if grid_search:
+        # Generate job configurations based on mode
+        if sweep:
+            print(f"Loading sweep configuration from: {sweep}")
+            configs = load_sweep_config(sweep)
+            print(f"Loaded {len(configs)} configurations from sweep file")
+        elif grid_search:
             print("Running grid search...")
             param_grid = {
                 'lr': [0.01, 0.001, 0.0001],
