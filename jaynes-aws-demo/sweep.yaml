@@ -1,0 +1,79 @@
+# Sweep configuration for jaynes MNIST training
+# Usage: python launch_sweep.py --sweep sweep.yaml --mode gpu
+
+experiments:
+  # Learning rate sweep with fixed batch size
+  - name: mnist-lr-0.01
+    lr: 0.01
+    batch_size: 64
+    epochs: 5
+    use_wandb: false
+
+  - name: mnist-lr-0.001
+    lr: 0.001
+    batch_size: 64
+    epochs: 5
+    use_wandb: false
+
+  - name: mnist-lr-0.0001
+    lr: 0.0001
+    batch_size: 64
+    epochs: 5
+    use_wandb: false
+
+  # Batch size sweep with fixed learning rate
+  - name: mnist-bs-32
+    lr: 0.001
+    batch_size: 32
+    epochs: 5
+    use_wandb: false
+
+  - name: mnist-bs-128
+    lr: 0.001
+    batch_size: 128
+    epochs: 5
+    use_wandb: false
+
+  - name: mnist-bs-256
+    lr: 0.001
+    batch_size: 256
+    epochs: 5
+    use_wandb: false
+
+  # Grid search: small learning rates with various batch sizes
+  - name: mnist-lr-0.0001-bs-32
+    lr: 0.0001
+    batch_size: 32
+    epochs: 10
+    use_wandb: false
+
+  - name: mnist-lr-0.0001-bs-64
+    lr: 0.0001
+    batch_size: 64
+    epochs: 10
+    use_wandb: false
+
+  - name: mnist-lr-0.0001-bs-128
+    lr: 0.0001
+    batch_size: 128
+    epochs: 10
+    use_wandb: false
+
+  # Longer training runs with best configs
+  - name: mnist-baseline-long
+    lr: 0.001
+    batch_size: 64
+    epochs: 20
+    use_wandb: false
+
+  - name: mnist-aggressive-long
+    lr: 0.01
+    batch_size: 128
+    epochs: 20
+    use_wandb: false
+
+  - name: mnist-conservative-long
+    lr: 0.0001
+    batch_size: 32
+    epochs: 20
+    use_wandb: false

@@ -1,0 +1,21 @@
+# Simple sweep configuration - just 3 experiments
+# Usage: python launch_sweep.py --sweep sweep_simple.yaml --mode gpu --max-concurrent 3
+
+experiments:
+  - name: mnist-baseline
+    lr: 0.001
+    batch_size: 64
+    epochs: 5
+    use_wandb: false
+
+  - name: mnist-large-batch
+    lr: 0.01
+    batch_size: 128
+    epochs: 5
+    use_wandb: false
+
+  - name: mnist-small-lr
+    lr: 0.0001
+    batch_size: 64
+    epochs: 5
+    use_wandb: false

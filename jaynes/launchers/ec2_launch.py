@@ -83,6 +83,7 @@ def launch_ec2(launch_script, image_id, instance_type, key_name, security_group,
             import yaml
             print(yaml.dump(response))
         if tags:
+            # Tag the spot request (instances will need to be found via spot request)
             ec2.create_tags(DryRun=dry, Resources=[spot_request_id], Tags=tag_str)
         cprint(f'made instance request {spot_request_id}', 'blue')
         return spot_request_id

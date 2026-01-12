@@ -1,0 +1,8 @@
+# Core dependencies
+jaynes
+torch>=2.0.0
+torchvision
+
+# Optional but recommended
+boto3  # AWS SDK for Python
+wandb  # Experiment tracking (optional)

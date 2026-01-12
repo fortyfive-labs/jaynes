@@ -1,0 +1,175 @@
+version: 0
+verbose: true
+
+# ============================================================================
+# Shared Configurations (reusable with YAML anchors)
+# ============================================================================
+
+# S3 Code Mount - uploads your code to S3, then downloads on EC2
+mounts:
+  - !mounts.S3Code &code_mount
+    # IMPORTANT: Change this to your S3 bucket!
+    prefix: s3://tom-jaynes-test/jaynes-demo/code/{now:%Y-%m-%d}
+    local_path: .
+    host_path: /home/ubuntu/jaynes-demo/{now:%H%M%S.%f}
+    container_path: /workspace
+    pypath: true
+    compress: true
+    excludes: "--exclude='*__pycache__' --exclude='*.git' --exclude='*.idea' --exclude='*.egg-info' --exclude='*.pkl' --exclude='outputs'"
+    region: us-east-1
+
+  # S3 Output Mount - syncs outputs to S3 every 15 seconds
+  - !mounts.S3Output &output_mount
+    container_path: /workspace/outputs
+    # IMPORTANT: Change this to your S3 bucket!
+    prefix: s3://tom-jaynes-test/outputs/{now:%Y-%m-%d}/{uuid}/
+    interval: 15  # sync every 15 seconds
+    sync_s3: true
+
+# ============================================================================
+# Runners
+# ============================================================================
+
+runners:
+  # Simple runner (no Docker)
+  - !runners.Simple &simple_runner
+    envs: "PYTHONPATH=/home/ubuntu/jaynes-demo:$PYTHONPATH"
+
+  # Simple runner for GPU with pre-installed PyTorch
+  - !runners.Simple &simple_gpu_runner
+    startup: |
+      # Use pre-installed PyTorch from Deep Learning AMI
+      sudo chown -R ubuntu:ubuntu /home/ubuntu/jaynes-demo
+      PYTHONPATH=/opt/pytorch/lib/python3.12/site-packages python3.12 -m pip install --user jaynes torchvision
+      echo "=== GPU Check ==="
+      nvidia-smi
+    envs: "PYTHONPATH=/opt/pytorch/lib/python3.12/site-packages:/home/ubuntu/.local/lib/python3.12/site-packages OUTPUT_DIR=/home/ubuntu/jaynes-demo/outputs DATA_DIR=/tmp/mnist_data"
+    entry_script: "python3.12 -u -m jaynes.entry"
+
+  # Docker runner with PyTorch GPU support
+  - !runners.Docker &docker_gpu_runner
+    image: "pytorch/pytorch:2.1.0-cuda11.8-cudnn8-runtime"
+    startup: |
+      echo "=== Installing dependencies ==="
+      pip install -q jaynes torchvision
+      echo "=== Checking GPU ==="
+      nvidia-smi
+      echo "=== PyTorch GPU check ==="
+      python -c "import torch; print('CUDA available:', torch.cuda.is_available())"
+    workdir: "/workspace"
+    gpus: all
+    ipc: host
+    envs: "OUTPUT_DIR=/workspace/outputs DATA_DIR=/tmp/mnist_data"
+
+  # Docker runner for CPU
+  - !runners.Docker &docker_cpu_runner
+    image: "python:3.10"
+    startup: |
+      echo "=== Installing PyTorch and dependencies ==="
+      pip install -q torch torchvision
+    workdir: "/workspace"
+    envs: "OUTPUT_DIR=/workspace/outputs DATA_DIR=/tmp/mnist_data"
+
+# ============================================================================
+# EC2 Launch Configuration
+# ============================================================================
+
+launch: &ec2_launch
+  type: ec2
+  region: us-east-1
+
+  # Auto-terminate instances after training completes
+  terminate_after: true
+  delay: 60  # Wait 60 seconds after training for S3 sync to complete
+
+  # AWS resources configured for us-east-1
+  image_id: ami-03b12bb641e054c72  # Deep Learning AMI GPU PyTorch 2.7 (Ubuntu 22.04) x86_64
+  key_name: EC2-computation-setup-test  # Your EC2 keypair
+  security_group: sg-0269a8793d97a3224  # jaynes-demo-sg (SSH enabled)
+  iam_instance_profile_arn: arn:aws:iam::747143892217:instance-profile/alanyu-jaynes-worker
+
+  # Tagging for cost tracking
+  tags:
+    Project: jaynes-demo
+    Owner: ml-team
+    ManagedBy: jaynes
+
+# ============================================================================
+# Modes - Different execution environments
+# ============================================================================
+
+modes:
+  # -------------------------------------------------------------------------
+  # LOCAL MODE - Run on your local machine for debugging
+  # -------------------------------------------------------------------------
+  local:
+    mounts: []
+    runner: !runners.Simple {}
+    launch:
+      type: local
+
+  # -------------------------------------------------------------------------
+  # DEBUG MODE - Small CPU instance on AWS for testing deployment
+  # -------------------------------------------------------------------------
+  debug:
+    mounts:
+      - *code_mount
+    runner: !runners.Simple
+      startup: |
+        # Install jaynes and use pre-installed PyTorch from Deep Learning AMI
+        sudo chown -R ubuntu:ubuntu /home/ubuntu/jaynes-demo
+        PYTHONPATH=/opt/pytorch/lib/python3.12/site-packages python3.12 -m pip install --user jaynes cloudpickle pyyaml requests termcolor aiofile functional_notations
+      envs: "PYTHONPATH=/opt/pytorch/lib/python3.12/site-packages:/home/ubuntu/.local/lib/python3.12/site-packages OUTPUT_DIR=/home/ubuntu/jaynes-demo/outputs DATA_DIR=/tmp/mnist_data"
+      entry_script: "python3.12 -u -m jaynes.entry"
+    launch:
+      <<: *ec2_launch
+      instance_type: t3.medium  # 2 vCPU, 4 GB RAM, ~$0.04/hr
+      spot_price: null  # on-demand for reliability
+
+  # -------------------------------------------------------------------------
+  # GPU MODE - Single GPU spot instance (cheap)
+  # -------------------------------------------------------------------------
+  gpu:
+    mounts:
+      - *code_mount
+      - *output_mount
+    runner: *simple_gpu_runner
+    launch:
+      <<: *ec2_launch
+      instance_type: g4dn.xlarge  # 1x T4 GPU, ~$0.20/hr spot
+      spot_price: "0.40"  # max price per hour
+      tags:
+        Project: jaynes-demo
+        InstanceType: gpu-small
+
+  # -------------------------------------------------------------------------
+  # GPU_LARGE MODE - Larger GPU for serious training
+  # -------------------------------------------------------------------------
+  gpu_large:
+    mounts:
+      - *code_mount
+      - *output_mount
+    runner: *simple_gpu_runner
+    launch:
+      <<: *ec2_launch
+      instance_type: g5.xlarge  # 1x A10G GPU, ~$0.30/hr spot
+      spot_price: "1.50"  # max price per hour (spot)
+      tags:
+        Project: jaynes-demo
+        InstanceType: gpu-large
+
+  # -------------------------------------------------------------------------
+  # MULTI_GPU MODE - Multi-GPU training
+  # -------------------------------------------------------------------------
+  multi_gpu:
+    mounts:
+      - *code_mount
+      - *output_mount
+    runner: *simple_gpu_runner
+    launch:
+      <<: *ec2_launch
+      instance_type: g4dn.12xlarge  # 4x T4 GPUs, ~$1.50/hr spot
+      spot_price: "2.50"
+      tags:
+        Project: jaynes-demo
+        InstanceType: multi-gpu
